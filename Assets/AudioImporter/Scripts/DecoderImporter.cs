@@ -1,182 +1,185 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Threading;
 using System.IO;
+using System.Threading;
 using UnityEngine;
 
-/// <summary>
-/// A base class for importing audio files by using a decoder.
-/// </summary>
-public abstract class DecoderImporter : AudioImporter
+namespace AudioImporter.Scripts
 {
-    private AudioInfo info;
-
-    private int bufferSize;
-    private float[] buffer;
-
-    private AutoResetEvent waitForMainThread;
-    private Thread import;
-
-    private int index;
-
-    private bool abort;
-
-    private Queue<Action> executionQueue = new Queue<Action>();
-    private object _lock = new object();
-
     /// <summary>
-    /// Stop importing as soon as possible.
+    /// A base class for importing audio files by using a decoder.
     /// </summary>
-    public override void Abort()
+    public abstract class DecoderImporter : AudioImporter
     {
-        if (abort)
-            return;
+        private AudioInfo info;
 
-        if (import == null || !import.IsAlive)
-            return;
+        private int bufferSize;
+        private float[] buffer;
 
-        abort = true;
+        private AutoResetEvent waitForMainThread;
+        private Thread import;
 
-        if(!isInitialized)
-            Destroy(audioClip);
+        private int index;
 
-        lock (_lock)
-            executionQueue.Clear();
+        private bool abort;
 
-        waitForMainThread.Set();
-        
-        import.Join();
-    }
+        private Queue<Action> executionQueue = new Queue<Action>();
+        private object _lock = new object();
 
-    protected override void Import()
-    {
-        bufferSize = 2048 * 128;
-        buffer = new float[bufferSize];
-
-        isDone = false;
-        isInitialized = false;
-        abort = false;
-        index = 0;
-        progress = 0;
-
-        waitForMainThread = new AutoResetEvent(false);
-        
-        import = new Thread(DoImport);
-        import.Start();
-    }
-
-    private void DoImport()
-    {
-        Initialize();
-
-        if (isError)
-            return;
-
-        info = GetInfo();
-
-        Dispatch(CreateClip);
-        Decode();
-        Cleanup();
-
-        progress = 1;
-        isDone = true;
-    }
-
-    private void Decode()
-    {
-        while (index < info.lengthSamples)
+        /// <summary>
+        /// Stop importing as soon as possible.
+        /// </summary>
+        public override void Abort()
         {
-            int read = GetSamples(buffer, 0, bufferSize);
-            
-            if(read == 0)
-                break;
-
             if (abort)
-                break;
+                return;
 
-            if (index + bufferSize >= info.lengthSamples)
-                Array.Resize(ref buffer, info.lengthSamples - index);
+            if (import == null || !import.IsAlive)
+                return;
 
-            Dispatch(SetData);
+            abort = true;
 
-            index += read;
+            if(!isInitialized)
+                Destroy(audioClip);
 
-            progress = (float)index / info.lengthSamples;
-        }
-    }
+            lock (_lock)
+                executionQueue.Clear();
 
-    private void CreateClip()
-    {
-        string name = Path.GetFileNameWithoutExtension(uri.LocalPath);
-
-        audioClip = AudioClip.Create(name, info.lengthSamples / info.channels, info.channels, info.sampleRate, false);
-
-        waitForMainThread.Set();
-    }
-
-    private void SetData()
-    {
-        if (audioClip == null)
-        {
-            Abort();
-            return;
+            waitForMainThread.Set();
+        
+            import.Join();
         }
 
-        audioClip.SetData(buffer, index / info.channels);
-
-        if(!isInitialized)
+        protected override void Import()
         {
-            isInitialized = true;
-            OnLoaded();
+            bufferSize = 2048 * 128;
+            buffer = new float[bufferSize];
+
+            isDone = false;
+            isInitialized = false;
+            abort = false;
+            index = 0;
+            progress = 0;
+
+            waitForMainThread = new AutoResetEvent(false);
+        
+            import = new Thread(DoImport);
+            import.Start();
         }
 
-        waitForMainThread.Set();
-    }
-
-    protected void OnError(string error)
-    {
-        this.error = error;
-        isError = true;
-
-        progress = 1;
-    }
-
-    private void Dispatch(Action action)
-    {
-        lock (_lock)
-            executionQueue.Enqueue(action);
-
-        waitForMainThread.WaitOne();
-    }
-
-    void Update()
-    {        
-        lock(_lock)
+        private void DoImport()
         {
-            while(executionQueue.Count > 0)            
-                executionQueue.Dequeue().Invoke();
+            Initialize();
+
+            if (isError)
+                return;
+
+            info = GetInfo();
+
+            Dispatch(CreateClip);
+            Decode();
+            Cleanup();
+
+            progress = 1;
+            isDone = true;
         }
-    }
 
-    protected abstract void Initialize();
-
-    protected abstract void Cleanup();
-
-    protected abstract int GetSamples(float[] buffer, int offset, int count);
-
-    protected abstract AudioInfo GetInfo();
-
-    protected class AudioInfo
-    {
-        public int lengthSamples { get; private set; }
-        public int sampleRate { get; private set; }
-        public int channels { get; private set; }
-
-        public AudioInfo(int lengthSamples, int sampleRate, int channels)
+        private void Decode()
         {
-            this.lengthSamples = lengthSamples;
-            this.sampleRate = sampleRate;
-            this.channels = channels;
+            while (index < info.lengthSamples)
+            {
+                int read = GetSamples(buffer, 0, bufferSize);
+            
+                if(read == 0)
+                    break;
+
+                if (abort)
+                    break;
+
+                if (index + bufferSize >= info.lengthSamples)
+                    Array.Resize(ref buffer, info.lengthSamples - index);
+
+                Dispatch(SetData);
+
+                index += read;
+
+                progress = (float)index / info.lengthSamples;
+            }
+        }
+
+        private void CreateClip()
+        {
+            string name = Path.GetFileNameWithoutExtension(uri.LocalPath);
+
+            audioClip = AudioClip.Create(name, info.lengthSamples / info.channels, info.channels, info.sampleRate, false);
+
+            waitForMainThread.Set();
+        }
+
+        private void SetData()
+        {
+            if (audioClip == null)
+            {
+                Abort();
+                return;
+            }
+
+            audioClip.SetData(buffer, index / info.channels);
+
+            if(!isInitialized)
+            {
+                isInitialized = true;
+                OnLoaded();
+            }
+
+            waitForMainThread.Set();
+        }
+
+        protected void OnError(string error)
+        {
+            this.error = error;
+            isError = true;
+
+            progress = 1;
+        }
+
+        private void Dispatch(Action action)
+        {
+            lock (_lock)
+                executionQueue.Enqueue(action);
+
+            waitForMainThread.WaitOne();
+        }
+
+        void Update()
+        {        
+            lock(_lock)
+            {
+                while(executionQueue.Count > 0)            
+                    executionQueue.Dequeue().Invoke();
+            }
+        }
+
+        protected abstract void Initialize();
+
+        protected abstract void Cleanup();
+
+        protected abstract int GetSamples(float[] buffer, int offset, int count);
+
+        protected abstract AudioInfo GetInfo();
+
+        protected class AudioInfo
+        {
+            public int lengthSamples { get; private set; }
+            public int sampleRate { get; private set; }
+            public int channels { get; private set; }
+
+            public AudioInfo(int lengthSamples, int sampleRate, int channels)
+            {
+                this.lengthSamples = lengthSamples;
+                this.sampleRate = sampleRate;
+                this.channels = channels;
+            }
         }
     }
 }

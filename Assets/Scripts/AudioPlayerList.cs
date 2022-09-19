@@ -1,17 +1,13 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using B83.Win32;
-using DefaultNamespace;
+using AudioImporter.Scripts;
 using UnityEngine;
 using UnityEngine.UI;
 
 public class AudioPlayerList : MonoBehaviour
 {
     [SerializeField] private AudioVisualizer audioVisualizer;
-    [SerializeField] private NAudioImporter importer;
     [SerializeField] private RectTransform playerListRect;
     [SerializeField] private GameObject songEntryPrefab;
     [SerializeField] private GameObject contentObject;
@@ -49,12 +45,11 @@ public class AudioPlayerList : MonoBehaviour
         return playList.IndexOf(playList.Find(current => current.AudioClip == audioVisualizer._audioSource.clip));
     }
 
-    void UpdateCurrentSongUI(AudioSource source)
+    void UpdateCurrentSongUI(AudioSource source, SongEntry songEntry)
     {
         if(source.clip == null) return;
         currentSongName.text = source.clip.name;
     }
-    
 
     private void Update()
     {
@@ -71,6 +66,7 @@ public class AudioPlayerList : MonoBehaviour
         foreach (var path in aFiles)
         {
             Debug.LogError("Importing: " + path);
+            if(CheckIfSongExists(GetFileName(path))) continue;
             StartCoroutine(Import(path));
         }
     }
@@ -83,20 +79,22 @@ public class AudioPlayerList : MonoBehaviour
 
     public void Test(string path)
     {
+        if(CheckIfSongExists(GetFileName(path))) return;
         StartCoroutine(Import(path));
     }
 
     void AddNewSongEntry(AudioClip audioClip)
     {
-        if(CheckIfSongExists(audioClip.name)) return;
-        
         var newEntry = Instantiate(songEntryPrefab, contentObject.transform);
         newEntry.TryGetComponent(out SongEntry entry);
+        
         if(audioClip != null) 
             entry.Init(audioClip);
         else
             Debug.LogError("No AudioClip to assign!");
+        
         playList.Add(entry);
+        
         MessageHandler.OnPlayListChanged(entry);
 
         Debug.LogError($"List contains {playList.Count} objects: ");
@@ -138,17 +136,24 @@ public class AudioPlayerList : MonoBehaviour
     
     IEnumerator Import(string path)
     {
-        importer.Import(path);
+        //importer.Import(path);
 
-        while (!importer.isInitialized && !importer.isError)
+        var go = new GameObject("Importing: " + GetFileName(path));
+        var newImporter = go.AddComponent<NAudioImporter>();
+        
+        newImporter.Import(path);
+
+        while (!newImporter.isInitialized && !newImporter.isError)
             yield return null;
 
-        if (importer.isError)
-            Debug.LogError(importer.error);
+        if (newImporter.isError)
+            Debug.LogError(newImporter.error);
 
-        importer.audioClip.name = GetFileName(path);
+        newImporter.audioClip.name = GetFileName(path);
         
-        MessageHandler.OnFileImported(importer.audioClip);
+        MessageHandler.OnFileImported(newImporter.audioClip);
+        
+        if(newImporter.isDone) Destroy(go);
     }
 
     bool CheckIfSongExists(string fileName)

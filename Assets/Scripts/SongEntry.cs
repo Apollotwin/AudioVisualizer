@@ -1,5 +1,4 @@
 using System;
-using DefaultNamespace;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -125,7 +124,7 @@ public class SongEntry : MonoBehaviour
         return image.rectTransform.rect.Contains(localMousePosition);
     }
 
-    public void HighLight(AudioSource source)
+    public void HighLight(AudioSource source, SongEntry songEntry)
     {
         highLight = source.clip == audioClip;
         image.color = highLight ? imageSelected : imageDefaultColor;

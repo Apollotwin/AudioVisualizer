@@ -1,35 +1,39 @@
 ﻿using System.Collections;
+using AudioImporter.Scripts;
 using UnityEngine;
 
-public class ImporterExample : MonoBehaviour
+namespace AudioImporter.Examples
 {
-    public Browser browser;
-    public AudioImporter importer;
-    public AudioSource audioSource;
-
-    void Awake()
+    public class ImporterExample : MonoBehaviour
     {
-        browser.FileSelected += OnFileSelected;
-    }
+        public Browser browser;
+        public Scripts.AudioImporter importer;
+        public AudioSource audioSource;
 
-    private void OnFileSelected(string path)
-    {
-        Destroy(audioSource.clip);
+        void Awake()
+        {
+            browser.FileSelected += OnFileSelected;
+        }
 
-        StartCoroutine(Import(path));
-    }
+        private void OnFileSelected(string path)
+        {
+            Destroy(audioSource.clip);
 
-    IEnumerator Import(string path)
-    {
-        importer.Import(path);
+            StartCoroutine(Import(path));
+        }
 
-        while (!importer.isInitialized && !importer.isError)
-            yield return null;
+        IEnumerator Import(string path)
+        {
+            importer.Import(path);
 
-        if (importer.isError)
-            Debug.LogError(importer.error);
+            while (!importer.isInitialized && !importer.isError)
+                yield return null;
 
-        audioSource.clip = importer.audioClip;
-        audioSource.Play();
+            if (importer.isError)
+                Debug.LogError(importer.error);
+
+            audioSource.clip = importer.audioClip;
+            audioSource.Play();
+        }
     }
 }
