@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 
 [DisallowMultipleComponent]
-public class Oscillator : MonoBehaviour
+public class MovementOscillator : MonoBehaviour
 {
     [SerializeField] Vector3 MovementVector;
     [SerializeField] float Period = 2f;
@@ -22,13 +22,13 @@ public class Oscillator : MonoBehaviour
             return;
         }
  
-        float cycle = Time.time / Period;
+        float time = Time.time / Period;
  
         const float tau = Mathf.PI * 2f;
-        float RawSinWave = Mathf.Sin(cycle * tau);
+        float RawSinWave = Mathf.Sin(time * tau);
  
         MovementFactor = RawSinWave / 2f + 0.5f;
         Vector3 offset = MovementFactor * MovementVector;
-        Movement = StartingPos + offset;
+        transform.position = StartingPos + offset;
     }
 }

@@ -9,6 +9,7 @@ public class AudioVisualizer : MonoBehaviour
     public static float[] freqBands = new float[8];
     public static float[] bandBuffer = new float[8];
     private float[] bufferDecrease = new float[8];
+    public float[] bands;
     [SerializeField, Range(1f, 2f)]private float smoothFactor = 1.2f;
 
     void Start()
@@ -20,6 +21,7 @@ public class AudioVisualizer : MonoBehaviour
         GetSpectrumAudioSource();
         MakeFrequencyBands();
         BandBuffer();
+        bands = freqBands;
     }
     void GetSpectrumAudioSource() => _audioSource.GetSpectrumData(_samples, 0, FFTWindow.Blackman);
 
