@@ -4,13 +4,18 @@ using UnityEngine;
 [RequireComponent(typeof(AudioSource))]
 public class AudioVisualizer : MonoBehaviour
 {
-    public AudioSource _audioSource;
+    public static AudioSource _audioSource;
     public static float[] _samples = new float[512];
     public static float[] freqBands = new float[8];
     public static float[] bandBuffer = new float[8];
     private float[] bufferDecrease = new float[8];
     public float[] bands;
     [SerializeField, Range(1f, 2f)]private float smoothFactor = 1.2f;
+    
+    public static float sampleValue { get; private set; }
+    public static int sampleRate { get; private set; }
+
+    private float timeSample;
 
     void Start()
     {
@@ -22,12 +27,21 @@ public class AudioVisualizer : MonoBehaviour
         MakeFrequencyBands();
         BandBuffer();
         bands = freqBands;
+
+        if (_samples != null && _samples.Length > 0)
+        {
+            sampleValue = _samples[0] * 100;
+        }
+
+        if (sampleRate == null && _audioSource != null) sampleRate = _audioSource.clip.samples;
+
+        timeSample = _audioSource.timeSamples;
     }
-    void GetSpectrumAudioSource() => _audioSource.GetSpectrumData(_samples, 0, FFTWindow.Blackman);
+    void GetSpectrumAudioSource() => _audioSource.GetSpectrumData(_samples, 0, FFTWindow.BlackmanHarris);
 
     void MakeFrequencyBands()
     {
-        //Wich sample we are at
+        //Which sample we are at
         int count = 0;
 
         //Loop through all freq bands
@@ -66,5 +80,15 @@ public class AudioVisualizer : MonoBehaviour
             }
             
         }
+    }
+    
+    // Track Position getter/setter
+    public static int GetTrackPosition()
+    {
+        return _audioSource.timeSamples;
+    }
+    public static void SetTrackPosition(int position)
+    {
+        _audioSource.timeSamples = position;
     }
 }

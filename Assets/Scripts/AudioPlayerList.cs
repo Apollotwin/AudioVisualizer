@@ -42,7 +42,7 @@ public class AudioPlayerList : MonoBehaviour
 
     public int GetIndexOfCurrentSong()
     {
-        return playList.IndexOf(playList.Find(current => current.AudioClip == audioVisualizer._audioSource.clip));
+        return playList.IndexOf(playList.Find(current => current.AudioClip == AudioVisualizer._audioSource.clip));
     }
 
     void UpdateCurrentSongUI(AudioSource source, SongEntry songEntry)
@@ -53,9 +53,9 @@ public class AudioPlayerList : MonoBehaviour
 
     private void Update()
     {
-        if (audioVisualizer._audioSource.clip == null) return;
+        if (AudioVisualizer._audioSource.clip == null) return;
         
-        var ts = TimeSpan.FromSeconds(audioVisualizer._audioSource.time);
+        var ts = TimeSpan.FromSeconds(AudioVisualizer._audioSource.time);
         currentSongTime.text = $"{ts.Minutes:00}:{ts.Seconds:00}";
     }
 
@@ -71,7 +71,7 @@ public class AudioPlayerList : MonoBehaviour
         }
     }
     
-    bool IsMouseOverPlayList(Vector2 mousePos)
+    public bool IsMouseOverPlayList(Vector2 mousePos)
     {
         Vector2 localMousePosition = playerListRect.InverseTransformPoint(Input.mousePosition);
         return playerListRect.rect.Contains(localMousePosition);
@@ -136,12 +136,12 @@ public class AudioPlayerList : MonoBehaviour
     
     IEnumerator Import(string path)
     {
-        //importer.Import(path);
-
         var go = new GameObject("Importing: " + GetFileName(path));
         var newImporter = go.AddComponent<NAudioImporter>();
         
         newImporter.Import(path);
+
+        //Set audioclip loadtype to "Decompress on load" to ensure that we have access to the audio sample data at runtime.
 
         while (!newImporter.isInitialized && !newImporter.isError)
             yield return null;
@@ -150,7 +150,7 @@ public class AudioPlayerList : MonoBehaviour
             Debug.LogError(newImporter.error);
 
         newImporter.audioClip.name = GetFileName(path);
-        
+
         MessageHandler.OnFileImported(newImporter.audioClip);
         
         if(newImporter.isDone) Destroy(go);

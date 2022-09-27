@@ -1,7 +1,9 @@
+using System;
+using System.Threading;
 using UnityEngine;
 using Task = System.Threading.Tasks.Task;
 
-public class ButtonsController : MonoBehaviour
+public class PlayListController : MonoBehaviour
 {
     [SerializeField] private AudioVisualizer audioVisualizer;
     [SerializeField] private AudioPlayerList audioPlayerList;
@@ -21,6 +23,15 @@ public class ButtonsController : MonoBehaviour
     private bool playing;
     private SongEntry currentSelected;
     private bool endOfClip;
+    private CancellationTokenSource fadeOutCancelSource;
+    private CancellationTokenSource fadeInCancelSource;
+
+    private void Start()
+    {
+        fadeOutCancelSource = new CancellationTokenSource();
+        fadeInCancelSource = new CancellationTokenSource();
+    }
+
     private void OnEnable()
     {
         MessageHandler.ButtonClicked += UpdateButtonUI;
@@ -38,15 +49,15 @@ public class ButtonsController : MonoBehaviour
     }
     private void Update()
     {
-        if(audioVisualizer._audioSource.time <= 0 && audioVisualizer._audioSource.clip != null && audioVisualizer._audioSource.isPlaying)
+        /*if(AudioVisualizer._audioSource.time <= 0 && AudioVisualizer._audioSource.clip != null && AudioVisualizer._audioSource.isPlaying)
         {
             endOfClip = true;
             if (endOfClip)
             {
-                Next(audioVisualizer._audioSource);
+                Next(AudioVisualizer._audioSource);
                 endOfClip = false;
             }
-        }
+        }*/
         
         if(Input.GetKey(KeyCode.Delete))
         {
@@ -57,9 +68,9 @@ public class ButtonsController : MonoBehaviour
 
         float timeSinceLastClick = Time.time - lastClickTime;
 
-        if (timeSinceLastClick <= DOUBLE_CLICK_TIME)
+        if (timeSinceLastClick <= DOUBLE_CLICK_TIME && audioPlayerList.IsMouseOverPlayList(Input.mousePosition) && currentSelected != null)
         {
-            MessageHandler.OnDoubleClick(audioVisualizer._audioSource, currentSelected);
+            MessageHandler.OnDoubleClick(AudioVisualizer._audioSource, currentSelected);
         }
 
         lastClickTime = Time.time;
@@ -79,6 +90,8 @@ public class ButtonsController : MonoBehaviour
         playing = false;
         MessageHandler.OnButtonClicked(audioSource, currentSelected);
         
+        fadeInCancelSource?.Cancel();
+        fadeOutCancelSource?.Cancel();
         await FadeOut(audioSource, 0.2f);
         audioSource.Pause();
         
@@ -101,6 +114,8 @@ public class ButtonsController : MonoBehaviour
         MessageHandler.OnButtonClicked(audioSource, currentSelected);
 
         audioSource.Play();
+        fadeInCancelSource?.Cancel();
+        fadeOutCancelSource?.Cancel();
         await FadeIn(audioSource, 0.2f);
     }
 
@@ -110,6 +125,10 @@ public class ButtonsController : MonoBehaviour
 
         playing = false;
         MessageHandler.OnButtonClicked(audioSource,currentSelected);
+        
+        fadeInCancelSource?.Cancel();
+        fadeOutCancelSource?.Cancel();
+        
         await FadeOut(audioSource, 0.2f);
         audioSource.Stop();
     }
@@ -121,9 +140,14 @@ public class ButtonsController : MonoBehaviour
         var nextSongIndex = audioPlayerList.GetIndexOfCurrentSong() - 1;
         if(nextSongIndex < 0) return;
 
+        fadeInCancelSource?.Cancel();
+        fadeOutCancelSource?.Cancel();
+        
         await FadeOut(audioSource, 0.1f);
         audioSource.clip = audioPlayerList.playList[nextSongIndex].AudioClip;
-        MessageHandler.OnButtonClicked(audioSource, null);
+
+        playing = true;
+        MessageHandler.OnButtonClicked(audioSource, currentSelected);
         audioSource.Play();
         await FadeIn(audioSource, 0.1f);
         
@@ -140,9 +164,12 @@ public class ButtonsController : MonoBehaviour
             return;
         }
         
+        fadeInCancelSource?.Cancel();
+        fadeOutCancelSource?.Cancel();
 
         await FadeOut(audioSource, 0.1f);
         audioSource.clip = audioPlayerList.playList[nextSongIndex].AudioClip;
+        playing = true;
         MessageHandler.OnButtonClicked(audioSource,null);
         audioSource.Play();
         await FadeIn(audioSource, 0.1f);
@@ -153,6 +180,7 @@ public class ButtonsController : MonoBehaviour
     {
         await FadeOut(audioSource, 0.1f);
         audioSource.clip = songEntry.AudioClip;
+        playing = true;
         MessageHandler.OnButtonClicked(audioSource,null);
         audioSource.Play();
         await FadeIn(audioSource, 0.1f);
@@ -166,6 +194,7 @@ public class ButtonsController : MonoBehaviour
         
         while (timeElapsed < fadeTime && audioSource.volume > 0)
         {
+            //if (fadeOutCancelSource.IsCancellationRequested) return;
             audioSource.volume = Mathf.Lerp(audioSource.volume, 0, timeElapsed / fadeTime);
             timeElapsed += Time.deltaTime;
             await Task.Yield();
@@ -177,6 +206,7 @@ public class ButtonsController : MonoBehaviour
         float timeElapsed = 0f;
         while (timeElapsed < fadeTime && audioSource.volume < maxVolume)
         {
+            //if (fadeInCancelSource.IsCancellationRequested) return;
             audioSource.volume = Mathf.Lerp(audioSource.volume, maxVolume, timeElapsed / fadeTime);
             timeElapsed += Time.deltaTime;
             await Task.Yield();

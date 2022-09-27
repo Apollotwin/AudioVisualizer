@@ -10,6 +10,6 @@ public class Character : MonoBehaviour
     
     private void Update()
     {
-        _animator.SetBool("IsDancing", _audioVisualizer._audioSource.isPlaying);
+        _animator.SetBool("IsDancing", AudioVisualizer._audioSource.isPlaying);
     }
 }
